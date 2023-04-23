@@ -1,6 +1,8 @@
 import streamlit as st
 from solver import TSP2D, LocalSearch, kick_double_bridge, nearest_neighbor_tour
 
+st.header("Solve TSP by ILS")
+
 n = st.number_input("number of points", min_value=20, max_value=1000, value=100, step=1)
 ls_iterations = st.number_input("number of iterations", min_value=1, max_value=50, value=10, step=1)
 random_seed = st.number_input("random seed", min_value=1, value=42, step=1)
