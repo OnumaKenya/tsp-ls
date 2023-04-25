@@ -1,6 +1,6 @@
 import streamlit as st
 from solver import TSP2D, LocalSearch, kick_double_bridge, nearest_neighbor_tour
-
+import matplotlib.pyplot as plt
 st.header("Solve TSP by ILS")
 
 n = st.number_input("number of points", min_value=20, max_value=1000, value=100, step=1)
@@ -19,14 +19,20 @@ if st.button("Go!"):
         st.subheader("Current Local Search")
         placeholder = st.empty()
         placeholder_obj = st.empty()
+    st.subheader("length of tour")
+    obj_plot = st.empty()
 
     ls = LocalSearch(tsp_data, L=L)
     ls.build_dists()
+
     opt_tour = nearest_neighbor_tour(tsp_data)
     tsp_data.plot_tour(opt_tour, placeholder_opt)
     placeholder_opt_obj.info(f"tour length: {tsp_data.length_of_tour(opt_tour): .3f} (initial)")
 
     init_tour = opt_tour
+    itr_num = []
+    tour_obj = []
+    opt_len = tsp_data.length_of_tour(init_tour)
 
     def ordinal(num):
         return "%d%s" % (num, "tsnrhtdd"[(num / 10 % 10 != 1) * (num % 10 < 4) * num % 10 :: 4])
@@ -34,9 +40,22 @@ if st.button("Go!"):
     for i in range(1, ls_iterations + 1):
         tour = ls.local_search(init_tour, placeholder)
         placeholder_obj.info(f"tour length: {tsp_data.length_of_tour(tour): .3f} ({ordinal(i)} iteration)")
-        if tsp_data.length_of_tour(tour) < tsp_data.length_of_tour(opt_tour):
+        tour_len = tsp_data.length_of_tour(tour)
+
+        itr_num.append(i)
+        tour_obj.append(tour_len)
+        if tour_len < opt_len:
             opt_tour = tour
+            opt_len = tour_len
             tsp_data.plot_tour(opt_tour, placeholder_opt)
-            placeholder_opt_obj.info(f"tour length: {tsp_data.length_of_tour(opt_tour) :.3f} ({ordinal(i)} iteration)")
+            placeholder_opt_obj.info(f"tour length: {tour_len :.3f} ({ordinal(i)} iteration)")
+
+        plt.close()
+        fig = plt.figure()
+        ax = fig.add_subplot(3, 1, 1)
+        ax.set_xlabel("Number of iteration")
+        ax.set_ylabel("length of tour")
+        ax.plot(itr_num, tour_obj, marker=".")
+        obj_plot.pyplot(fig)
         init_tour = kick_double_bridge(tour)
     st.success("Optimization Done!")
