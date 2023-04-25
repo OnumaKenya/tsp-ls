@@ -109,6 +109,7 @@ class LocalSearch:
     tour: list
     L: int
     dists: list
+    do_not_look: list
 
     def __init__(self, data: TSP2D, L: int | None = None):
         self.data = data
@@ -138,80 +139,114 @@ class LocalSearch:
 
     def local_search(self, init_tour: list, placeholder) -> list:
         tour = init_tour
-        v1 = 0
+        v1 = -1
+        data = self.data
+        n = data.n
+
+        self.do_not_look = [False] * n
+        while True:
+            flg_improve = False
+            # 始点を固定しての探索
+            for _ in range(n):
+                v1 = (v1 + 1) % n
+                if self.do_not_look[v1]:
+                    continue
+                flg_improve, tmp_tour = self.search_2opt_single_edge(tour, v1)
+                # 改善したら解を更新
+                if flg_improve:
+                    tour = tmp_tour
+                    break
+                else:
+                    self.do_not_look[v1] = True
+            # すべての頂点を探索しても改善しないなら終了
+            if not flg_improve:
+                break
+
+            data.plot_tour(tour, placeholder)
+        return tour
+
+    def search_2opt_single_edge(self, tour, v1) -> tuple[bool, list | None]:
+        """一方の交換辺の始点を固定しての2opt近傍の探索
+
+        Args:
+            tour: 現在のツアー
+            v1: 一方の交換辺の始点
+
+        Returns:
+            改善解が見つかったかどうかのフラグと、見つかった場合はその改善解
+        """
+        flg_improve, tmp_tour = self.search_2opt_single_end(tour, v1)
+        # 改善したら解を更新して次の頂点へ
+        if flg_improve:
+            return flg_improve, tmp_tour
+        # 逆向きも探索
+        tour_reversed = list(reversed(tour))
+        flg_improve, tmp_tour = self.search_2opt_single_end(tour_reversed, v1)
+
+        return flg_improve, (tmp_tour if flg_improve else None)
+
+    def search_2opt_single_end(self, tour, v1) -> tuple[bool, list | None]:
+        """一方の交換辺を固定しての2opt近傍の探索
+
+        Args:
+            tour: 現在のツアー
+            v1: 一方の交換辺の始点
+
+        Returns:
+            改善解が見つかったかどうかのフラグと、見つかった場合はその改善解
+        """
         data = self.data
         n = data.n
         x = data.x
         y = data.y
-
-        while True:
-            flg_improve = False
-            # 始点が片方の探索
-            for _ in range(n):
-                idx_v1 = tour.index(v1)
-                idx_v2 = (idx_v1 + 1) % n
-                v2 = tour[idx_v2]
-                d12 = dist((x[v1], y[v1]), (x[v2], y[v2]))
-                for d14, v4 in self.dists[v1]:
-                    if d14 >= d12:
-                        break
-                    idx_v4 = tour.index(v4)
-                    idx_v3 = (idx_v4 + 1) % n
-                    v3 = tour[idx_v3]
-                    if len({v1, v2, v3, v4}) != 4:
-                        continue
-                    d34 = dist((x[v3], y[v3]), (x[v4], y[v4]))
-                    d23 = dist((x[v2], y[v2]), (x[v3], y[v3]))
-
-                    if d23 + d14 < d12 + d34:
-                        flg_improve = True
-                        if idx_v2 < idx_v4:
-                            tour = tour[:idx_v2] + list(reversed(tour[idx_v2 : idx_v4 + 1])) + tour[idx_v4 + 1 :]
-                        else:
-                            tour = tour[:idx_v3] + list(reversed(tour[idx_v3 : idx_v1 + 1])) + tour[idx_v1 + 1 :]
-                        break
-                if flg_improve:
-                    break
-
-                for d23, v3 in self.dists[v2]:
-                    idx_v3 = tour.index(v3)
-                    idx_v4 = (idx_v3 + n - 1) % n
-                    v4 = tour[idx_v4]
-                    if len({v1, v2, v3, v4}) != 4:
-                        continue
-                    d34 = dist((x[v3], y[v3]), (x[v4], y[v4]))
-                    d14 = dist((x[v1], y[v1]), (x[v4], y[v4]))
-                    if d23 >= d34:
-                        break
-                    if d23 + d14 < d12 + d34:
-                        flg_improve = True
-                        if idx_v2 < idx_v4:
-                            tour = tour[:idx_v2] + list(reversed(tour[idx_v2 : idx_v4 + 1])) + tour[idx_v4 + 1 :]
-                        else:
-                            tour = tour[:idx_v3] + list(reversed(tour[idx_v3 : idx_v1 + 1])) + tour[idx_v1 + 1 :]
-                        break
-                v1 = (v1 + 1) % n
-                if flg_improve:
-                    break
-            if flg_improve:
-                # print(data.length_of_tour(tour))
-                data.plot_tour(tour, placeholder)
-                continue
-            else:
+        idx_v1 = tour.index(v1)
+        idx_v2 = (idx_v1 + 1) % n
+        v2 = tour[idx_v2]
+        d12 = dist((x[v1], y[v1]), (x[v2], y[v2]))
+        for d14, v4 in self.dists[v1]:
+            # d14がd12以上になったら、それ以降は探索しなくていい
+            if d14 >= d12:
                 break
+            idx_v4 = tour.index(v4)
+            idx_v3 = (idx_v4 + 1) % n
+            v3 = tour[idx_v3]
+            if len({v1, v2, v3, v4}) != 4:
+                continue
+            d34 = dist((x[v3], y[v3]), (x[v4], y[v4]))
+            d23 = dist((x[v2], y[v2]), (x[v3], y[v3]))
 
-        return tour
+            if d23 + d14 < d12 + d34:
+                self.do_not_look[v1] = False
+                self.do_not_look[v2] = False
+                self.do_not_look[v3] = False
+                self.do_not_look[v4] = False
+                return True, move_to_2opt_neighbor(tour, idx_v1, idx_v2, idx_v3, idx_v4)
+
+        return False, None
+
+
+def move_to_2opt_neighbor(tour: list, i1: int, i2: int, i3: int, i4: int) -> list:
+    """指定した2opt近傍へ移動する"""
+    if i2 < i4:
+        return tour[:i2] + list(reversed(tour[i2 : i4 + 1])) + tour[i4 + 1 :]
+    else:
+        return tour[:i3] + list(reversed(tour[i3 : i1 + 1])) + tour[i1 + 1 :]
 
 
 def kick_double_bridge(tour: list) -> list:
-    used = set()
+    """double bridgeにより解を変形させる"""
     n = len(tour)
+    if n < 8:
+        raise RuntimeError("Few edges to kick double bridge.")
+
     kick_edges = []
+    unused_set = set(range(n))
     while len(kick_edges) < 4:
-        u = np.random.randint(n)
-        if u not in used and (u + 1) % n not in used:
-            kick_edges.append((u, (u + 1) % n))
-            used |= {u, (u + 1) % n}
+        ln = len(unused_set)
+        i = np.random.randint(ln)
+        u = sorted(unused_set)[i]
+        unused_set = unused_set - {u, (u + 1) % n, (u + n - 1) % n}
+        kick_edges.append((u, (u + 1) % n))
 
     kick_edges.sort()
     ret = []
