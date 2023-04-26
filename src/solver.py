@@ -18,7 +18,7 @@ class TSP2D:
     y: Series
 
     @staticmethod
-    def make_random_data(n: int, xrange: int = 200, yrange: int = 200, random_seed: int = None) -> TSP2D:
+    def make_random_data(n: int, xrange: int = 1000, yrange: int = 1000, random_seed: int = None) -> TSP2D:
         """make random 2d tsp data
 
         Args:
@@ -65,7 +65,7 @@ class TSP2D:
 
     def length_of_tour(self, tour: list) -> float:
         ret = 0.0
-        tour_full = [0] + tour + [0]
+        tour_full = tour + [tour[0]]
         for i in range(self.n):
             p1 = (self.x[tour_full[i]], self.y[tour_full[i]])
             p2 = (self.x[tour_full[i + 1]], self.y[tour_full[i + 1]])
@@ -110,6 +110,7 @@ class LocalSearch:
     L: int
     dists: list
     do_not_look: list
+    history: list
 
     def __init__(self, data: TSP2D, L: int | None = None):
         self.data = data
@@ -121,6 +122,7 @@ class LocalSearch:
             self.L = L
 
         self.dists = [[] for _ in range(n)]
+        self.history = []
 
     def build_dists(self):
         n = self.data.n
@@ -142,7 +144,7 @@ class LocalSearch:
         v1 = -1
         data = self.data
         n = data.n
-
+        self.history.append(data.length_of_tour(init_tour))
         self.do_not_look = [False] * n
         while True:
             flg_improve = False
@@ -151,10 +153,12 @@ class LocalSearch:
                 v1 = (v1 + 1) % n
                 if self.do_not_look[v1]:
                     continue
-                flg_improve, tmp_tour = self.search_2opt_single_edge(tour, v1)
+                flg_improve, tmp_tour, diff = self.search_2opt_single_edge(tour, v1)
                 # 改善したら解を更新
                 if flg_improve:
                     tour = tmp_tour
+                    # TODO: 効率化
+                    self.history.append(self.history[-1] + diff)
                     break
                 else:
                     self.do_not_look[v1] = True
@@ -165,7 +169,7 @@ class LocalSearch:
             data.plot_tour(tour, placeholder)
         return tour
 
-    def search_2opt_single_edge(self, tour, v1) -> tuple[bool, list | None]:
+    def search_2opt_single_edge(self, tour, v1) -> tuple[bool, list | None, float]:
         """一方の交換辺の始点を固定しての2opt近傍の探索
 
         Args:
@@ -173,19 +177,19 @@ class LocalSearch:
             v1: 一方の交換辺の始点
 
         Returns:
-            改善解が見つかったかどうかのフラグと、見つかった場合はその改善解
+            改善解が見つかったかどうかのフラグと、見つかった場合はその改善解と改善量
         """
-        flg_improve, tmp_tour = self.search_2opt_single_end(tour, v1)
+        flg_improve, tmp_tour, diff = self.search_2opt_single_end(tour, v1)
         # 改善したら解を更新して次の頂点へ
         if flg_improve:
-            return flg_improve, tmp_tour
+            return flg_improve, tmp_tour, diff
         # 逆向きも探索
         tour_reversed = list(reversed(tour))
-        flg_improve, tmp_tour = self.search_2opt_single_end(tour_reversed, v1)
+        flg_improve, tmp_tour, diff = self.search_2opt_single_end(tour_reversed, v1)
 
-        return flg_improve, (tmp_tour if flg_improve else None)
+        return flg_improve, (tmp_tour if flg_improve else None), diff
 
-    def search_2opt_single_end(self, tour, v1) -> tuple[bool, list | None]:
+    def search_2opt_single_end(self, tour, v1) -> tuple[bool, list | None, float]:
         """一方の交換辺を固定しての2opt近傍の探索
 
         Args:
@@ -193,7 +197,7 @@ class LocalSearch:
             v1: 一方の交換辺の始点
 
         Returns:
-            改善解が見つかったかどうかのフラグと、見つかった場合はその改善解
+            改善解が見つかったかどうかのフラグと、見つかった場合はその改善解と改善量
         """
         data = self.data
         n = data.n
@@ -220,9 +224,9 @@ class LocalSearch:
                 self.do_not_look[v2] = False
                 self.do_not_look[v3] = False
                 self.do_not_look[v4] = False
-                return True, move_to_2opt_neighbor(tour, idx_v1, idx_v2, idx_v3, idx_v4)
+                return True, move_to_2opt_neighbor(tour, idx_v1, idx_v2, idx_v3, idx_v4), d23 + d14 - d12 - d34
 
-        return False, None
+        return False, None, 0.0
 
 
 def move_to_2opt_neighbor(tour: list, i1: int, i2: int, i3: int, i4: int) -> list:

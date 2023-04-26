@@ -3,7 +3,7 @@ from solver import TSP2D, LocalSearch, kick_double_bridge, nearest_neighbor_tour
 import matplotlib.pyplot as plt
 st.header("Solve TSP by ILS")
 
-n = st.number_input("number of points", min_value=20, max_value=1000, value=100, step=1)
+n = st.number_input("number of points", min_value=20, max_value=3000, value=100, step=1)
 ls_iterations = st.number_input("number of iterations", min_value=1, max_value=50, value=10, step=1)
 random_seed = st.number_input("random seed", min_value=1, value=42, step=1)
 L = st.number_input("size of distance list", min_value=10, max_value=1000, value=20, step=1)
@@ -21,6 +21,7 @@ if st.button("Go!"):
         placeholder_obj = st.empty()
     st.subheader("length of tour")
     obj_plot = st.empty()
+    obj_plot2 = st.empty()
 
     ls = LocalSearch(tsp_data, L=L)
     ls.build_dists()
@@ -34,12 +35,9 @@ if st.button("Go!"):
     tour_obj = []
     opt_len = tsp_data.length_of_tour(init_tour)
 
-    def ordinal(num):
-        return "%d%s" % (num, "tsnrhtdd"[(num / 10 % 10 != 1) * (num % 10 < 4) * num % 10 :: 4])
-
     for i in range(1, ls_iterations + 1):
         tour = ls.local_search(init_tour, placeholder)
-        placeholder_obj.info(f"tour length: {tsp_data.length_of_tour(tour): .3f} ({ordinal(i)} iteration)")
+        placeholder_obj.info(f"tour length: {tsp_data.length_of_tour(tour): .3f} (iteration No.{i})")
         tour_len = tsp_data.length_of_tour(tour)
 
         itr_num.append(i)
@@ -48,14 +46,23 @@ if st.button("Go!"):
             opt_tour = tour
             opt_len = tour_len
             tsp_data.plot_tour(opt_tour, placeholder_opt)
-            placeholder_opt_obj.info(f"tour length: {tour_len :.3f} ({ordinal(i)} iteration)")
+            placeholder_opt_obj.info(f"tour length: {tour_len :.3f} (iteration No.{i})")
 
         plt.close()
         fig = plt.figure()
         ax = fig.add_subplot(3, 1, 1)
-        ax.set_xlabel("Number of iteration")
+        ax.set_xlabel("Number of local search")
         ax.set_ylabel("length of tour")
         ax.plot(itr_num, tour_obj, marker=".")
         obj_plot.pyplot(fig)
+
+        plt.close()
+        fig = plt.figure()
+        ax = fig.add_subplot(3, 1, 1)
+        ax.set_xlabel("Number of move to neighbor")
+        ax.set_ylabel("length of tour")
+        ax.plot(list(range(len(ls.history))), ls.history)
+        obj_plot2.pyplot(fig)
+
         init_tour = kick_double_bridge(tour)
     st.success("Optimization Done!")
