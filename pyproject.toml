@@ -12,6 +12,7 @@ streamlit = "^1.16.0"
 streamlit-aggrid = "^0.3.3"
 matplotlib = "^3.7.1"
 scipy = "^1.10.1"
+networkit = "^10.1"
 
 [tool.poetry.dev-dependencies]
 pysen = "^0.10.2"
